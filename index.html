@@ -1,0 +1,41 @@
+
+<!DOCTYPE HTML>
+<html>
+    <head>
+        <title>Projects | Kostka rubika</title>
+        <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+        <meta name="description" content="" />
+        <meta name="keywords" content="" />
+        <link href="http://lukaszmical.pl/favicon.ico" rel="shortcut icon" type="image/x-icon">
+
+        <meta property="og:title" content="Projects | Kostka rubika" />
+        <meta property="og:image" content="http://lukaszmical.pl/public/images/rubic.jpg" />
+        <meta property="og:url" content="http://lukaszmical.pl/projects/show/rubikscube" />
+        <meta property="og:description" content="" />
+        <meta property="og:type" content="article" />	
+
+        <style>  
+            body{
+                background-image: url('images/bg.png');
+                text-align: center;
+                margin:0;
+                overflow:hidden;
+            }
+            #info{
+                position: absolute;
+                top:0;
+                left: 0;
+                z-index: 999;
+                width: 330px;
+                height: 400px;
+                background: url("./rubik.jpg");
+            }
+        </style>
+        <script src='./rubikscube.js'></script> 
+		
+    </head>
+    <body>
+        <div id="info"></div>
+        <canvas id="cubic"></canvas>		
+    </body>
+</html>
