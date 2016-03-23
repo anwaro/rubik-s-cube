@@ -1,6 +1,9 @@
 var DE = Math.PI / 180;
 var PI = Math.PI;
 var PI4 = Math.PI / 4;
+var PI34 = 3 * Math.PI / 4;
+var PI2 = Math.PI / 2;
+var D = 3 * Math.sqrt(3);
 
 var rotateCubeAxis = new Vector(1, 1, 0);
 var rotatePartAxis = new Vector(0, 0, 0);
@@ -12,19 +15,24 @@ var rotatePartAngle = 0;
 var rotateEndAngle = 0;
 var angleStep = 0;
 var rotateCount = 0;
+var supportElipse = false;
 
 var canvas, ctx;
 var canvasWidth = 900;
 var canvasHeight = 600;
 var centerX = canvasWidth / 2;
 var centerY = canvasHeight / 2;
+var scaleMax = 0;
 var scale = 0;
 var radius = 0.3;
+var lineWidth = 4;
 
 var shakeRepetCount = 20;
 var shakeCount = 0;
 var shakeAngleEnd = 0;
 var shakeAngleStep = 0;
+var startFontSize = 2 * scale;
+
 
 var colors = {
     red: "#BF1E2E",
@@ -33,9 +41,12 @@ var colors = {
     orange: "#F6941D",
     yellow: "#FFF100",
     white: "#FFFFFF",
-    bg: "#DADADA",
+    bg1: "#DADADA",
+    bg2: "#848484",
+    bg3: "#505050",
     line: "#282828",
-    black: "#403F3F"
+    black: "#403F3F",
+    bgGradient:null
 };
 
 var mouse = {
@@ -45,6 +56,7 @@ var mouse = {
     leftPress: false,
     scrollPress: false,
     rightPress: false,
+    inercion : false,
     block: false,
     animationProcess: false,
     shakeProcess: false,
@@ -55,9 +67,27 @@ var mouse = {
     resetLazy : function(){
         this.lazy.set(this.pos);
     },
-    update:function(){
-        if(this.shakeProcess) return false;
+    update : function () {
+        if(this.shakeProcess) return false;   
+        
         this.updateLazy();
+        
+        if(this.inercion){
+            if(this.pos.distance(this.lazy) < 5){
+                this.inercion = false;
+                if(mouse.leftPress){
+                    mouse.animationProcess = true;
+                    cube.calculateAngle();
+                    cube.rotateAnimation();
+                }
+                else if(mouse.scrollPress){
+                    cube.updatePosition();
+                    mouse.scrollPress = false;
+                    rotateCubeAngle = 0;                    
+                }
+                
+            }
+        }
         
         if (this.scrollPress) {
             dragCube.set(this.lazy.x - this.click.x, this.click.y - this.lazy.y);
@@ -108,46 +138,30 @@ var wallF = [faceF, createWall(vertex4, vertex7, colors.yellow, 5), new Neighbor
 var cube = new Cube([wallA, wallB, wallC, wallD, wallE, wallF]);
 
 
-
-/*
- * 
- * @param {type} event
- * @returns {undefined}
- */
 function mouseMove(event) {
+    if(mouse.inercion) return 1;
     var rect = canvas.getBoundingClientRect();
     mouse.pos.set(event.clientX - rect.left, event.clientY - rect.top);
 }
 
-/*
- * 
- * @param {type} event
- * @returns {undefined}
- */
+function canvasCursor(type){
+    canvas.style.cursor = type;
+}
+
 function mouseUp(event) {
-    if (mouse.leftPress && event.button === 0) { //scroll down  
-        mouse.animationProcess = true;
-        cube.calculateAngle();
-        cube.rotateAnimation();
+    if (mouse.leftPress && event.button === 0) {
+        mouse.inercion = true;
+        canvasCursor("default");
     }
     if (mouse.scrollPress && event.button === 1) {
-        cube.updatePosition();
-        mouse.scrollPress = false;
-        rotateCubeAngle = 0;
-    }
-    if (mouse.rightPress && event.button === 2) {
-        mouse.rightPress = false;
-        rotateCubeAngle = 0;
+        mouse.inercion = true;
+        canvasCursor("default");
     }
 }
 
-/*
- * 
- * @param {type} event
- * @returns {undefined}
- */
 function mouseDown(event) {
-    if (mouse.scrollPress || mouse.leftPress || mouse.rightPress) {
+    if (mouse.scrollPress || mouse.leftPress || mouse.rightPress
+            || mouse.animationProcess || mouse.shakeProcess || mouse.inercion) {
         return false;
     }
     var rect = canvas.getBoundingClientRect();
@@ -155,20 +169,19 @@ function mouseDown(event) {
     mouse.pos.set(event.clientX - rect.left, event.clientY - rect.top+1e-9);
     mouse.resetLazy();
 
-    if (event.button === 0) { //left button down
-        mouse.leftPress = true;
+    if (event.button === 0){
+        mouse.leftPress   = true;
+        canvasCursor("move");
     }
-    else if (event.button === 1) { //scroll down
+    else if (event.button === 1){
         mouse.scrollPress = true;
-    }
-    else if (event.button === 2) { // rihgt down
-        mouse.rightPress = true;
+        canvasCursor("move");
     }
 }
 
 
 function draw() {
-    ctx.fillStyle = colors.bg;
+    ctx.fillStyle = colors.bgGradient;
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
     
     rotateCubeMatrix.updateMatrix(rotateCubeAxis, rotateCubeAngle * DE);
@@ -179,33 +192,21 @@ function draw() {
         cube.rotatePart();        
     }
     
+    supportElipse&&cube.printShadow();
     cube.fillFaces();
+    
     mouse.shakeProcess || mouse.update();
-    //testLog();
-
-}
-
-function _(id) {
-    return document.getElementById(id);
+    mouse.shakeProcess && countdown();
+    
 }
 
 function testLog() {
+    ctx.beginPath();
+    ctx.fillStyle = "red";
+    ctx.moveTo(mouse.click.x, mouse.click.y);
+    ctx.lineTo(mouse.pos.x, mouse.pos.y);
+    ctx.stroke();
 
-    ctx.beginPath();
-    ctx.fillStyle = 'red';
-    ctx.arc(vertex1.ctxPos().x, vertex1.ctxPos().y, 4, 0, Math.PI * 2, true);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.fillStyle = 'blue';
-    ctx.arc(vertex3.ctxPos().x, vertex3.ctxPos().y, 4, 0, Math.PI * 2, true);
-    ctx.fill();
-    _('angle').innerHTML = 'cube: ' + rotateCubeAngle + " part: " + rotatePartAngle;
-    _('sp1').innerHTML = vertex1.str();
-    _('sp2').innerHTML = vertex2.str();
-    _('sp3').innerHTML = vertex3.str();
-    _('sp4').innerHTML = vertex4.str();
-    _('sp5').innerHTML = vertex5.str();
-    _('sp6').innerHTML = vertex6.str();
 }
 
 function Cube(walls) {
@@ -216,31 +217,27 @@ function Cube(walls) {
     this.blackFillFace = {id:-1,pid: -1};
     this.blackFace = new Face(new Vector(), new Vector(), new Vector(), new Vector(), colors.black);
     this.dragDirection = -1; // 1-top 2-down 3-left 4-right
-    this.faceNormal = -1; // Face to calculate normal vector
+    this.faceNormal = -1;
     this.clickFacesIndex = -1;
     this.clickElementIndex = -1;
     this.moveTo = -1;
+    this.extrema = {min: new Vector(), max: new Vector()};
+    this.shadow = new Vector();
+    
     this.getFace= function (id) {   
         return this.walls[id][0];
     };
+    
     this.getChild = function (id) {
         return this.walls[id][1];
     };
+    
     this.getNeigh= function (id) {
         return this.walls[id][2];
     };
+    
     this.normalPos = function (move) {
         return parseInt("3421".split('')[move - 1]);
-    };
-    
-    this.ipdateId = function(){
-        for (var i = 0; i < this.walls.length; i++) {
-            for (var j = 0; j < this.walls[i][1].length; j++) {
-                this.walls[i][1][j].id = j;
-                this.walls[i][1][j].parentId = i;
-            }
-        }
-        
     };
     
     this.rotateAll = function (rotateCubeMatrix) {
@@ -283,8 +280,7 @@ function Cube(walls) {
             }
         }
         else{
-            var dist = 0;           
-            
+            var dist = 0;
             for (var i = 0; i < this.walls.length; i++) {
                 for (var j = 0; j < this.walls[i][1].length; j++) {
                     if(this.distance(this.walls[i][1][j].average()) < 2){
@@ -334,17 +330,13 @@ function Cube(walls) {
     };
     
     this.blackFillCorr = function(face, dist){
-        if(this.distance(face.v1) > dist ) this.addToBlackFile(face, face.v1);
-        if(this.distance(face.v2) > dist ) this.addToBlackFile(face, face.v2);
-        if(this.distance(face.v3) > dist ) this.addToBlackFile(face, face.v3);
-        if(this.distance(face.v4) > dist ) this.addToBlackFile(face, face.v4);        
+        if(this.distance(face.v1) > dist ) this.addToBlackFace(face, face.v1);
+        if(this.distance(face.v2) > dist ) this.addToBlackFace(face, face.v2);
+        if(this.distance(face.v3) > dist ) this.addToBlackFace(face, face.v3);
+        if(this.distance(face.v4) > dist ) this.addToBlackFace(face, face.v4);        
     };
     
-    this.ctxPos = function(point){
-        return {x: centerX + point.x * scale, y: centerY - point.y * scale};
-    };
-    
-    this.addToBlackFile = function(face, point){
+    this.addToBlackFace = function(face, point){
         if(this.blackFillFace.id === -1){
             this.blackFillFace.id = face.parentId;
             this.blackFillFace.pid = this.getNeigh(face.parentId).parall;
@@ -376,36 +368,41 @@ function Cube(walls) {
         var nor = this.getFace(index).normal;//A, B, C
         var poi = this.getFace(index).v1; //Xo, Yo, Zo
         return Math.abs(nor.x * point.x + nor.y * point.y + nor.z * point.z
-                +nor.x * poi.x + nor.y * poi.y + nor.z * poi.z)/ 
-                Math.sqrt(nor.x * nor.x + nor.y * nor.y + nor.z * nor.z);
+                       +nor.x * poi.x + nor.y * poi.y + nor.z * poi.z)/ 
+                       Math.sqrt(nor.x * nor.x + nor.y * nor.y + nor.z * nor.z);
     };
 
     this.nearestVertex = function () {
-        var maxZ = -3;
+        var max = {x:-10, y:-10, z:-10};
+        var min = {x: 10, y: 10, z: 10};
+        
         for (var i = 0; i < this.walls.length; i++) {
             var face = this.walls[i][0];
-            maxZ = Math.max(face.v1.z, face.v2.z, face.v3.z, face.v4.z, maxZ);
+            max.x = Math.max(face.v1.x, face.v2.x, face.v3.x, face.v4.x, max.x);
+            max.y = Math.max(face.v1.y, face.v2.y, face.v3.y, face.v4.y, max.y);
+            max.z = Math.max(face.v1.z, face.v2.z, face.v3.z, face.v4.z, max.z);
+            
+            min.x = Math.min(face.v1.x, face.v2.x, face.v3.x, face.v4.x, min.x);
+            min.y = Math.min(face.v1.y, face.v2.y, face.v3.y, face.v4.y, min.y);
+            min.z = Math.min(face.v1.z, face.v2.z, face.v3.z, face.v4.z, min.z);
         }
-        return maxZ;
+        this.extrema.max.setV(max);
+        this.extrema.min.setV(min);
+        return this.extrema.max.z;
     };
 
-
     this.rotatePart = function () {
-        if (this.dragDirection === -1) {
-            if (dragPart.len() > 10) {
-                this.setDragDirection();
-                this.faceNormal = this.choseNormalFace();
-                if (this.faceNormal !== -1) {
-                    var face = this.getFace(this.faceNormal);
-                    var v1 = face.v1.toVector(face.v4);
-                    var v2 = face.v1.toVector(face.v2);
-                    var v = v1.crossProduct(v2);
-                    rotatePartAxis.setV(v);
-                    rotatePartAxis.norm();
-                    rotatePartMatrix.updateMatrix(rotatePartAxis, rotatePartAngle* DE);
-                    this.checkElementToRotate();
-                }
-            }
+        if (this.dragDirection === -1 && dragPart.len() > 10) {
+            this.setDragDirection();
+            this.faceNormal = this.choseNormalFace();
+            if (this.faceNormal !== -1) {
+                var face = this.getFace(this.faceNormal);
+                var v1 = face.v1.toVector(face.v4);
+                rotatePartAxis.setV(v1.crossProduct(face.v1.toVector(face.v2)));
+                rotatePartAxis.norm();
+                rotatePartMatrix.updateMatrix(rotatePartAxis, rotatePartAngle* DE);
+                this.checkElementToRotate();
+            }            
         }
         else if(this.clickFacesIndex !==-1){
             rotatePartMatrix.updateMatrix(rotatePartAxis, rotatePartAngle * DE);
@@ -417,135 +414,116 @@ function Cube(walls) {
     };
     
     this.setDragDirection = function(){
+        if(this.clickFacesIndex === -1) return false;
+        var face = this.getFace(this.clickFacesIndex);
         var angle = dragPart.angle2D();
-        if (angle > -PI4 && angle < PI4) {
-            this.dragDirection = 4;
-        }
-        else if (angle > PI4 && angle < 3 * PI4) {
-            this.dragDirection = 1;
-        }
-        else if (angle > -3 * PI4 && angle < -PI4) {
-            this.dragDirection = 2;
-        }
-        else {
-            this.dragDirection = 3;
-        }
+        var angle1 = face.horizontalVector.angle2D();
+        var angle2 = face.verticalVector.angle2D();
         
+        var dAngle = angle2-angle1;
+        dAngle = dAngle < 0 ? dAngle + 2*PI : dAngle;
+        
+        var g1 = angle1 + 0.5*(dAngle);
+        var g2 = g1+PI2;        
+        var g3 = g1+2*PI2;     
+        var g4 = g1+3*PI2;  
+       
+        if(this.isBetween(angle, g4, g1))      this.moveTo =4;
+        else if(this.isBetween(angle, g1, g2)) this.moveTo =1;
+        else if(this.isBetween(angle, g2, g3)) this.moveTo =3;
+        else if(this.isBetween(angle, g3, g4)) this.moveTo =2;
+        
+        if      (this.isBetween(angle, PI4,   3*PI4)) this.dragDirection = 1;
+        else if (this.isBetween(angle, 3*PI4, 5*PI4)) this.dragDirection = 3;
+        else if (this.isBetween(angle, 5*PI4, 7*PI4)) this.dragDirection = 2;
+        else                                          this.dragDirection = 4; 
     };
     
+    this.isBetween = function(angle, start, stop){
+        if (start < 0   ) start+=2*PI;
+        if (start > 2*PI) start-=2*PI;
+        if (stop  < 0   ) stop +=2*PI;
+        if (stop  > 2*PI) stop -=2*PI;
+        
+        if(start <= stop) return start <= angle && angle <= stop;
+        if(start >  stop) return start <  angle || angle <  stop;
+    };
+
+   
     this.checkElementToRotate = function(){
         var index = this.clickElementIndex;
         var face = this.clickFacesIndex;
+        var move = this.moveTo;
         this.elementRotate = [];
-        if(this.moveTo === 1 || this.moveTo === 2){
-            if (face === 0 || face === 2){
-                this.vertical1(face, face === 0?2:0, index);
-            }
-            if (face === 1 || face === 3){
-                this.vertical2(face, face === 1?3:1, index);                
-            }
-            if (face === 4 || face === 5){
-                this.vertical3(face, face === 4?5:4, index);                
-            }
-        }else{
-            if(face < 4){
-                this.horizontalSimple(face, index);
-            }
-            else if(face === 4 || face === 5){
-                this.horizontal(face, face === 4?5:4, index);                
-            }
-        }
-    };
-    
-    this.vertical1 = function(face, face2, index){
-        var ne = this.getNeigh(face);
-        if(index%3 ===0|| (index+1)%3 ===0){
-            var facenext = index%3 ===0 ? ne.left : ne.right;
-            for(var i=0; i<9;i++){
-                this.elementRotate.push([facenext, i]);
-            } 
-        }
-        this.pushEl(face, index, (index+3)%9, (index+6)%9); 
-        if(face === 0){
-            this.pushEl(ne.top, index, (index+3)%9, (index+6)%9);
-            this.pushEl(ne.bottom, index, (index+3)%9, (index+6)%9);            
-        }else{
-            this.pushEl(ne.top, 8-index, (17-index+3)%9, (17-index+6)%9);
-            this.pushEl(ne.bottom, 8-index, (17-index+3)%9, (17-index+6)%9);            
-        }       
-        this.pushEl(face2, 8-index, (17-index+3)%9, (17-index+6)%9);       
-    };
-    
-    this.vertical2 = function(face, face2, index){
-        var ne = this.getNeigh(face);
-        if(index%3 ===0|| (index+1)%3 ===0){
-            var facenext = index%3 ===0 ? ne.left : ne.right;
-            for(var i=0; i<9;i++){
-                this.elementRotate.push([facenext, i]);
-            } 
-        }
-        var f1 = face === 1 ? ne.top : ne.bottom;
-        var f2 = face === 3 ? ne.top : ne.bottom;
-        var col = 3*(index%3);
-        this.pushEl(face, index, (index+3)%9, (index+6)%9); 
-        this.pushEl(f1, 8-col, 7-col, 6-col);        
-        this.pushEl(f2, col, col+1, col+2);
-        this.pushEl(face2, 8-index, (17-index+3)%9, (17-index+6)%9);      
-    };
-    
-    this.vertical3 = function(face, face2, index){
-        var ne = this.getNeigh(face);
-        if(index%3 ===0|| (index+1)%3 ===0){
-            var facenext = index%3 ===0 ? ne.left : ne.right;
-            for(var i=0; i<9;i++){
-                this.elementRotate.push([facenext, i]);
-            } 
-        }
-        var f1 = face === 4 ? ne.top : ne.bottom;
-        var f2 = face === 5 ? ne.top : ne.bottom;
-        this.pushEl(face, index, (index+3)%9, (index+6)%9);        
-        this.pushEl(f2, index, (index+3)%9, (index+6)%9);
-        this.pushEl(f1, 8-index, (17-index+3)%9, (17-index+6)%9);
-        this.pushEl(face2, index, (index+3)%9, (index+6)%9);       
-    };
-    
-    this.horizontalSimple = function(face, index){
-        if(index < 3 || index >5){
-            var ne = this.getNeigh(face);
-            var facenext = index < 3 ? ne.top : ne.bottom;
-            for(var i=0; i<9;i++){
-                this.elementRotate.push([facenext, i]);
-            } 
-        }
-        var basic = index > 2 ? (index > 5 ? 6 :3) : 0; 
-        for(var i =0; i<4;i++){ 
-            this.pushEl(i, basic, basic+1, basic+2);
-        }
-    };
-    
-    this.horizontal = function(face, face2, index){
-        var ne = this.getNeigh(face);
-        if(index < 3 || index >5){
-            var facenext = index < 3 ? ne.top : ne.bottom;
-            for(var i=0; i<9;i++){
-                this.elementRotate.push([facenext, i]);
-            } 
-        }
-        var basic = index > 2 ? (index > 5 ? 6 :3) : 0; 
-        var row = basic/3;
-        var f1 = face === 4 ? ne.left : ne.right;
-        var f2 = face === 5 ? ne.left : ne.right;        
-        this.pushEl(face, basic, basic+1, basic+2);        
-        this.pushEl(f1, row, row+3, row+6);
-        this.pushEl(f2, 2-row, 5-row, 8-row);
-        this.pushEl(face2, 6-basic, 7-basic, 8-basic);
-    };
-    
-    this.pushEl = function(face, e1, e2, e3){
-        this.elementRotate.push([face, e1]);
-        this.elementRotate.push([face, e2]);
-        this.elementRotate.push([face, e3]);
         
+        if(([3,4].indexOf(move) !== -1) && face < 4){
+            this.pushZX(index);
+        }
+        else if (([1,2].indexOf(move) !== -1)
+                && ([0,2,4,5].indexOf(face) !== -1)){
+            index = face === 2 ? 8-index : index;
+            this.pushZY(index);
+        }
+        else{
+            if(face === 4){
+                index = [6, 3, 0, 7, 4, 1, 8, 5, 2].indexOf(index);
+            }
+            else if(face === 3){
+                index  = 8-index;
+            }
+            else if(face === 5){
+                index = [2, 5, 8, 1, 4, 7, 0, 3, 6].indexOf(index);
+            }  
+            this.pushXY(index);
+        }
+        
+    };   
+    
+    this.pushZX = function (index) {
+        var basic = index > 2 ? (index > 5 ? 6 :3) : 0; 
+        var seq = [0,1,2,3,0];        
+        if(index<3) this.pushFace(4);
+        if (index>5) this.pushFace(5);  
+        
+        for(var i =0; i<seq.length;i++){
+            this.pushGroup(seq[i], basic, basic+1, basic+2);
+        }
+
+    };
+    this.pushXY = function (index) {
+        var col = index%3;        
+        
+        if(index%3 ===0) this.pushFace(0);
+        if ((index+1)%3 ===0) this.pushFace(2);  
+        this.pushGroup(1, col, col+3, col+6);
+        this.pushGroup(4, 3*(2-col), 3*(2-col)+1, 3*(2-col)+2);
+        this.pushGroup(3, 8-col, 5-col, 2-col);
+        this.pushGroup(5, 3*col+2, 3*col+1, 3*col);
+        this.pushGroup(1, col, col+3, col+6);
+
+    };
+    this.pushZY = function (index) {
+        var col = index%3;        
+        if(index%3 ===0) this.pushFace(3);
+        if ((index+1)%3 ===0) this.pushFace(1);    
+            this.pushGroup(0, col, col+3, col+6);
+            this.pushGroup(4, col, col+3, col+6);
+            this.pushGroup(2, 8-col, 5-col, 2-col);
+            this.pushGroup(5, col, col+3, col+6);
+            this.pushGroup(0, col, col+3, col+6);
+    };    
+    
+   
+    this.pushGroup = function(face, el1, el2, el3){
+        this.elementRotate.push([face, el1]);  
+        this.elementRotate.push([face, el2]);
+        this.elementRotate.push([face, el3]);      
+    };
+    
+    this.pushFace = function(face){
+        for (var i = 0; i < 9; i++) {
+            this.elementRotate.push([face, i]);
+        }
     };
     
     this.reset = function () {
@@ -560,24 +538,7 @@ function Cube(walls) {
 
     this.choseNormalFace = function () {
         if (this.clickFacesIndex === -1) return -1;
-        drag = this.dragDirection;
-        orie = this.getFace(this.clickFacesIndex).orient;
-        var moveTo = 0;
-        if (drag === orie) {
-            moveTo = 1;
-        }
-        else if ((orie === 3 && drag === 1) || (orie === 4 && drag === 2)) {
-            moveTo = 4;
-        }
-        else if ((orie === 3 && drag === 2) 
-                || (orie === 4 && drag === 1) 
-                || (orie === 2 && drag === 4)) {
-            moveTo = 3;
-        } else {
-            moveTo = (drag + orie - 2) % 4 + 1;
-        }
-        this.moveTo =  moveTo;
-        return this.getNeigh(this.clickFacesIndex).get(this.normalPos(moveTo));
+        return this.getNeigh(this.clickFacesIndex).get(this.normalPos(this.moveTo));
     };
 
     this.activeFaceIndex = function (point) {
@@ -663,24 +624,22 @@ function Cube(walls) {
             angle+=360;
         }
         angle = angle%360;
-        rotateCount = Math.round(angle/90);
-        
+        rotateCount = Math.round(angle/90);        
         rotateEndAngle = Math.round(rotatePartAngle/90) *90;
-        angleStep  = (rotateEndAngle - rotatePartAngle)/15;
-        
+        angleStep  = (rotateEndAngle - rotatePartAngle)/5;        
     };
     
     this.transform = function(){
         var index = this.clickElementIndex;
         var face = this.clickFacesIndex;
         var move = this.moveTo;
-        this.elementRotate = [];     
+        
         if(([3,4].indexOf(move) !== -1) && face < 4){
             for (var i = 0; i < rotateCount; i++) { 
                 this.moveZX(index, this.moveTo === 3);
             }
         }
-        else if (([1,2].indexOf(move) !== -1) 
+        else if (([1,2].indexOf(move) !== -1)
                 && ([0,2,4,5].indexOf(face) !== -1)){
             var top = (move === 1);
             top = face === 2 ? !top : top;
@@ -714,25 +673,14 @@ function Cube(walls) {
     this.moveZX = function (index, left) {
         var color = [null, null, null];
         var basic = index > 2 ? (index > 5 ? 6 :3) : 0; 
-        var last;
+        var seq = left?[0,1,2,3,0].reverse():[0,1,2,3,0];
         
         if(index<3) this.rotateFace(4, left);
-        if (index>5) this.rotateFace(5, !left); 
+        if (index>5) this.rotateFace(5, !left);         
         
-        if(left){      
-            for(var i=3; i>=0;i--){ 
-                color = this.replaceGroup(i, [basic, basic+1, basic+2], color);
-                last = i;
-            }
+        for(var i =0; i<seq.length;i++){
+            color = this.replaceGroup(seq[i], [basic, basic+1, basic+2], color);
         }
-        else{
-            for(var i=0; i<=3;i++){ 
-                color = this.replaceGroup(i, [basic, basic+1,basic+2], color);
-                last = i;
-            }
-            
-        }
-        this.replaceGroup(3-last, [basic, basic+1,basic+2], color);  
 
     };
     this.moveXY = function (index, top) {
@@ -814,6 +762,7 @@ function Cube(walls) {
         this.clickFacesIndex = index;
         this.clickElementIndex = element;
         this.dragDirection = drag;
+        this.moveTo = drag;
         this.faceNormal = this.choseNormalFace();
         var face = this.getFace(this.faceNormal);
         var v1 = face.v1.toVector(face.v4);
@@ -825,26 +774,27 @@ function Cube(walls) {
         this.checkElementToRotate();
     };
     
+    this.printShadow = function(){        
+        var pos = this.shadow.scale({x:0, y:-1.2*D, z:0});        
+        var rX = this.extrema.max.x*scale;
+        var rY = 0.1*this.extrema.max.z*scale;
+        for (var i = 0; i < 20; i++) {
+            ctx.beginPath();
+            ctx.fillStyle = 'rgba(100, 100, 100, 0.1)';
+            ctx.ellipse(pos.x, pos.y,rX-i*rX/25 ,rY-i*rY/25, 0, 0, 2*PI, 1);
+            ctx.fill();
+            
+        }
+    };  
 }
 
-/**
- * 
- * @param {type} v1
- * @param {type} v2
- * @param {type} v3
- * @param {type} v4
- * @param {type} color
- * @param {type} id
- * @param {type} pId
- * @returns {Face}
- */
 function Face(v1, v2, v3, v4, color, id, pId) {
     this.v1 = v1;
     this.v2 = v2;
     this.v3 = v3;
     this.v4 = v4;
-    this.orient = 1; // 1-normal, 2-upsidedown, 3-leftside, 4-rightside
-    this.orientVecor = new Vector(v1.x - v4.x, v1.y - v4.y, v1.z - v4.z);
+    this.verticalVector = new Vector(v1.x - v4.x, v1.y - v4.y, v1.z - v4.z);
+    this.horizontalVector = new Vector(v2.x - v1.x, v2.y - v1.y, v2.z - v1.z);
     this.angle = 0;
     this.color = color;
     this.id = id || 0;
@@ -865,35 +815,15 @@ function Face(v1, v2, v3, v4, color, id, pId) {
                     y : (this.v1.y + this.v2.y + this.v3.y + this.v4.y) / 4,
                     z : (this.v1.z + this.v2.z + this.v3.z + this.v4.z) / 4};
         
-    };
-    this.setAngle = function () {
-        var sign = this.v1.y < this.v2.y ? 1 : -1;
-        this.orientVecor.set(this.v1.x - this.v4.x, this.v1.y - this.v4.y, this.v1.z - this.v4.z);
-        this.angle = sign * Math.acos(this.orientVecor.dotProduct(planeVec) / (this.orientVecor.len() * planeVec.len()));
-    };
-
-    this.setOrient = function () {
-        this.setAngle();
-        if (this.angle > -PI4 && this.angle < PI4) {
-            this.orient = 1;
-        }
-        else if (this.angle > PI4 && this.angle < 3 * PI4) {
-            this.orient = 3;
-        }
-        else if (this.angle > 3 * PI4 || this.angle < -3 * PI4) {
-            this.orient = 2;
-        }
-        else if (this.angle < -PI4 && this.angle > -3 * PI4) {
-            this.orient = 4;
-        }
-    };
+    };  
 
     this.rotate = function (rotateCubeMatrix) {
         this.v1.rotate(rotateCubeMatrix);
         this.v2.rotate(rotateCubeMatrix);
         this.v3.rotate(rotateCubeMatrix);
         this.v4.rotate(rotateCubeMatrix);
-        this.setOrient();
+        this.verticalVector.set(v1.x - v4.x, v1.y - v4.y, v1.z - v4.z);
+        this.horizontalVector.set(v2.x - v1.x, v2.y - v1.y, v2.z - v1.z);
         this.showToggle();
     };
     this.update = function () {
@@ -906,7 +836,7 @@ function Face(v1, v2, v3, v4, color, id, pId) {
         if(this.show){
             ctx.beginPath();
             ctx.strokeStyle = colors.line;
-            ctx.lineWidth = 4;
+            ctx.lineWidth = lineWidth;
             ctx.lineCap = 'round';
             ctx.lineJoin = "round";
             ctx.moveTo(this.v1.ctxPos().x, this.v1.ctxPos().y);
@@ -972,14 +902,6 @@ function Face(v1, v2, v3, v4, color, id, pId) {
 
 }
 
-
-/**
- * 
- * @param {type} x
- * @param {type} y
- * @param {type} z
- * @returns {Point}
- */
 function Point(x, y, z) {
     this.x = x || 0;
     this.y = y || 0;
@@ -997,22 +919,19 @@ function Point(x, y, z) {
             
         }
     };
+    this.distance = function(point){
+        return Math.sqrt(Math.pow(point.x-this.x,2) + Math.pow(point.y-this.y,2));
+    };
 }
 
-/**
- * 
- * @param {type} x
- * @param {type} y
- * @param {type} z
- * @returns {Vector}
- */
 function Vector(x, y, z) {
     this.x = x || 0;
     this.y = y || 0;
     this.z = z || 0;
     this.pos = new Point(x, y, z);
     this.angle2D = function () {
-        return Math.atan2(this.y, this.x);
+        var a = Math.atan2(this.y, this.x);        
+        return a>0?a:2*PI+a;
     };
     this.ctxPos = function () {
         return this.scale(this);
@@ -1208,20 +1127,10 @@ function randomColor() {
     return color;
 }
 
-/**
- * 
- * @param {type} angle
- * @returns {Number}
- */
 function cos(angle) {
     return Math.cos(angle);
 }
 
-/**
- * 
- * @param {type} angle
- * @returns {Number}
- */
 function sin(angle) {
     return Math.sin(angle);
 }
@@ -1237,25 +1146,55 @@ function hexToRgba(hex, a) {
 }
 
 document.addEventListener("DOMContentLoaded", init);
+window.addEventListener("resize", resize);
 
-function init(){
-    canvas = document.getElementById('cubic');
+function resize() {
     canvasHeight = window.innerHeight;
     canvasWidth = window.innerWidth;
     centerX = canvasWidth / 2;
     centerY = canvasHeight / 2;
-    scale = 0;
     canvas.height = canvasHeight;
     canvas.width = canvasWidth;
-    ctx = canvas.getContext('2d');
-    setInterval(draw, 50);
+    scale = Math.round((canvasHeight<canvasWidth?canvasHeight:canvasWidth)*0.08-6);
+    scale = Math.min(Math.max(scale, 5), 55);
+    colors.bgGradient = ctx.createLinearGradient(0,0,0,canvasHeight);
+    colors.bgGradient.addColorStop(0,colors.bg1);
+    colors.bgGradient.addColorStop(.66,colors.bg2);
+    colors.bgGradient.addColorStop(.75,colors.bg3);
+    colors.bgGradient.addColorStop(.85,colors.bg2);
+    colors.bgGradient.addColorStop(1,colors.bg1);
+    startFontSize = scale * 4;
+    if(scale > 40) lineWidth = 4;
+    else if(scale > 30) lineWidth = 3;
+    else if(scale > 20) lineWidth = 2;
+    else lineWidth = 1;
     
-    zoom();
-      
+}
+
+function init(){
+    canvas = document.getElementById('cubic');   
+    ctx = canvas.getContext('2d'); 
+    if(typeof ctx.ellipse === 'function'){
+        supportElipse = true;
+    }
+    resize();
+    setInfoELement();
+    scaleMax = scale;
+    scale = 2;
+    setInterval(draw, 50);    
+    zoom();      
+}
+
+function setInfoELement() {
+    var w = 0.25*canvasWidth+"px";
+    var h = (4/3.3 *0.25*canvasWidth)+"px";
+    document.getElementById('info').style.width = w;
+    document.getElementById('info').style.height =h;
+    document.getElementById('info').style.backgroundSize = w + " " + h;
 }
 
 function zoom(){
-    if(scale<50){
+    if(scale<scaleMax){
         rotateCubeAngle+=1;
         scale+=2;
         setTimeout(zoom, 50);
@@ -1263,25 +1202,21 @@ function zoom(){
     else{
         cube.updatePosition();
         rotateCubeAngle=0;
-        shake();
+        10?shake():start();
     }
 }
 
 function shake(){
-    if(shakeCount <= shakeRepetCount){
+    if(shakeCount < shakeRepetCount){
         shakeCount++;
         var rep = randInt(1, 4);
         shakeAngleEnd = rep * 90;   
-        shakeAngleStep= shakeAngleEnd/(4*rep);   
-        
+        shakeAngleStep= shakeAngleEnd/10;         
         cube.setVariableToShake(randInt(0,6), randInt(0,9), randInt(1,5));
-        mouse.leftPress = true;
-        mouse.shakeProcess = true;
-        
+        mouse.shakeProcess = true;        
         shakeRotate();        
     }
     else{
-        mouse.leftPress = false;
         mouse.shakeProcess = false;
         start();
     }
@@ -1301,12 +1236,23 @@ function shakeRotate() {
     }
 }
 
+function countdown() {
+    if(rotatePartAngle !== 0){
+        var procent = Math.abs(rotatePartAngle - shakeAngleEnd)/shakeAngleEnd;
+        ctx.font = ((2-procent)*startFontSize)+"px Comic Sans MS";
+        ctx.fillStyle = "rgba(70,70,70,"+(procent)+")";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(shakeRepetCount - shakeCount +1, centerX, centerY);
+    }
+}
+
 function randInt(start, stop){
     return Math.floor(Math.random()*(stop-start))+start;
 }
 
 function start() {
-    document.getElementById('info').style.display = "none";
+    document.getElementById('info').classList.add('hidden');
     document.addEventListener('mouseup', mouseUp);
     canvas.addEventListener('mousedown', mouseDown);
     canvas.addEventListener('mouseup', mouseUp);

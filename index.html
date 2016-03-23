@@ -20,15 +20,18 @@
                 text-align: center;
                 margin:0;
                 overflow:hidden;
-            }
-            #info{
+            }#info{
                 position: absolute;
                 top:0;
                 left: 0;
                 z-index: 999;
-                width: 330px;
-                height: 400px;
-                background: url("./rubik.jpg");
+                background: url("./rubik.png");
+            }
+
+            .hidden {
+              visibility: hidden;
+              opacity: 0;
+              transition: visibility 0s 1s, opacity 1s linear;
             }
         </style>
         <script src='./rubikscube.js'></script> 
