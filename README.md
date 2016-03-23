@@ -1,3 +1,3 @@
 # rubik-s-cube
-Rubik'c cube
+Rubik's cube
 [Play](http://lukaszmical.pl/projects/show/rubikscube)
