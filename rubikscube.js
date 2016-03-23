@@ -13,6 +13,7 @@ var planeVec = new Vector(0, 1, 0);
 var rotateCubeAngle = 0;
 var rotatePartAngle = 0;
 var rotateEndAngle = 0;
+var rotateSpeed = 0;
 var angleStep = 0;
 var rotateCount = 0;
 var supportElipse = false;
@@ -93,17 +94,17 @@ var mouse = {
             dragCube.set(this.lazy.x - this.click.x, this.click.y - this.lazy.y);
             rotateCubeAxis.set(-dragCube.y, dragCube.x);
             rotateCubeAxis.norm();
-            rotateCubeAngle = dragCube.len() / 100 * 36;
+            rotateCubeAngle = dragCube.len() / 100 * rotateSpeed;
         }
         else if (this.leftPress && !this.animationProcess) {
             var dx = this.lazy.x - this.click.x;
             var dy = this.click.y - this.lazy.y;
             dragPart.set(dx, dy);
 
-            if(cube.dragDirection === 1)       rotatePartAngle =  dy / 70 * 36;
-            else if(cube.dragDirection === 2 ) rotatePartAngle = -dy / 70 * 36;
-            else if(cube.dragDirection === 3 ) rotatePartAngle = -dx / 70 * 36;
-            else                               rotatePartAngle =  dx / 70 * 36;
+            if(cube.dragDirection === 1)       rotatePartAngle =  dy / 70 * rotateSpeed;
+            else if(cube.dragDirection === 2 ) rotatePartAngle = -dy / 70 * rotateSpeed;
+            else if(cube.dragDirection === 3 ) rotatePartAngle = -dx / 70 * rotateSpeed;
+            else                               rotatePartAngle =  dx / 70 * rotateSpeed;
         }
         
     }
@@ -178,6 +179,44 @@ function mouseDown(event) {
         canvasCursor("move");
     }
 }
+
+function touchStart(){
+    if (mouse.scrollPress || mouse.leftPress || mouse.rightPress
+            || mouse.animationProcess || mouse.shakeProcess || mouse.inercion) {
+        return false;
+    }
+    var touchobj = event.changedTouches[0]; // reference first touch point for this event    
+    var rect = canvas.getBoundingClientRect();
+    mouse.click.set(touchobj.clientX - rect.left, touchobj.clientY - rect.top);
+    mouse.pos.set(touchobj.clientX - rect.left, touchobj.clientY - rect.top+1e-9);
+    mouse.resetLazy();
+    
+    var touchCube = cube.activeElement(mouse.click);
+    
+    if (touchCube){
+        mouse.leftPress   = true;
+    }
+    else{
+        mouse.scrollPress = true;
+    }
+    
+}
+
+
+function touchMove(event){
+    if(mouse.inercion) return 1;
+    var touchobj = event.changedTouches[0]; // reference first touch point for this event    
+    var rect = canvas.getBoundingClientRect();
+    mouse.pos.set(touchobj.clientX - rect.left, touchobj.clientY - rect.top);
+    event.preventDefault();    
+}
+
+function touchEnd(event){
+    if (mouse.leftPress) mouse.inercion = true;
+    else if(mouse.scrollPress) mouse.inercion = true;
+    
+}
+
 
 
 function draw() {
@@ -566,6 +605,7 @@ function Cube(walls) {
                 this.clickElementIndex = i;
             }
         }
+        return true;
     };
 
     this.pointInideFace = function (face, point) {
@@ -1163,6 +1203,7 @@ function resize() {
     colors.bgGradient.addColorStop(.75,colors.bg3);
     colors.bgGradient.addColorStop(.85,colors.bg2);
     colors.bgGradient.addColorStop(1,colors.bg1);
+    rotateSpeed = 55/scale * 36;
     startFontSize = scale * 4;
     if(scale > 40) lineWidth = 4;
     else if(scale > 30) lineWidth = 3;
@@ -1254,7 +1295,13 @@ function randInt(start, stop){
 function start() {
     document.getElementById('info').classList.add('hidden');
     document.addEventListener('mouseup', mouseUp);
+    document.addEventListener('touchmove', touchMove);
+    
     canvas.addEventListener('mousedown', mouseDown);
     canvas.addEventListener('mouseup', mouseUp);
     canvas.addEventListener('mousemove', mouseMove);
+    
+    canvas.addEventListener('touchstart', touchStart);
+    canvas.addEventListener('touchend', touchEnd);
+    canvas.addEventListener('touchmove', touchMove);
 }
